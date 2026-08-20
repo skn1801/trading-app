@@ -81,6 +81,12 @@ def render_logged_in_home():
     with col2:
         st.page_link("pages/2_Dashboard.py", label="View positions, P&L and funds", icon="📊")
 
+    col3, col4 = st.columns(2)
+    with col3:
+        st.page_link("pages/3_Market_Watch.py", label="NIFTY / BANKNIFTY / SENSEX prices", icon="📍")
+    with col4:
+        st.page_link("pages/4_Option_Chain.py", label="Option chain & futures explorer", icon="🧮")
+
     st.divider()
     if st.button("Log out"):
         session.logout()

@@ -72,6 +72,20 @@ trading account.
   combined.
 - **Positions**: symbol, exchange, product, quantity, average price, LTP,
   and P&L, grouped by account, with a combined total P&L.
+- **Market Watch**: live NIFTY 50, NIFTY BANK, and SENSEX prices.
+- **Option Chain & Futures Explorer**: pick any index (NIFTY, BANKNIFTY,
+  FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX) or any individual F&O stock, then:
+  - **Option Chain tab** — pick an expiry, see CE/PE OI, volume, % change,
+    and LTP per strike, with the at-the-money strike highlighted. A slider
+    lets you limit how many strikes around the current price to show (full
+    NIFTY/BANKNIFTY chains can be 80–150+ rows).
+  - **Futures tab** — every available expiry (current/next/far month) for
+    that underlying, with LTP, % change, volume, and OI.
+
+These three features all require a connected **Angel One** account (Zerodha
+isn't used for market data here) and pull the list of tradable
+strikes/expiries from Angel's daily instrument master file, which is cached
+locally for about a day so it isn't re-downloaded on every click.
 
 ## Project layout
 
@@ -83,11 +97,14 @@ core/
   session.py                  # Streamlit session-state / login guard
   broker_factory.py           # builds broker clients from encrypted rows
 brokers/
-  angel_one.py                # SmartAPI wrapper
+  angel_one.py                # SmartAPI wrapper (positions, funds, batched quotes)
   kite.py                     # Kite Connect wrapper
+  instruments.py              # Angel instrument-master download/cache + option/futures lookups
 pages/
   1_Manage_Accounts.py        # add / test / remove broker accounts
   2_Dashboard.py               # combined positions, P&L, funds
+  3_Market_Watch.py            # NIFTY / BANKNIFTY / SENSEX live prices
+  4_Option_Chain.py            # option chain + futures explorer, any underlying
 ```
 
 ## Notes & caveats
@@ -98,6 +115,26 @@ pages/
   SmartAPI (https://smartapi.angelbroking.com/docs) or Kite Connect
   (https://kite.trade/docs/connect/v3/) docs and adjust the field mapping
   in `brokers/angel_one.py` / `brokers/kite.py`.
+- **Instrument master / quote field names**: `brokers/instruments.py` and
+  the quote normalizer in `brokers/angel_one.py` were built and tested
+  against Angel's documented/publicly posted field names (`token`,
+  `symbol`, `name`, `expiry`, `strike`, `instrumenttype`, `exch_seg` for the
+  instrument master; `ltp`, `netChange`, `percentChange`, `opnInterest`,
+  `tradeVolume` for quotes) using a synthetic fixture, since this
+  environment couldn't reach Angel's servers to test against the live file.
+  The code tries a couple of alternate key-name spellings defensively, but
+  if a column looks empty/wrong after connecting a real account, check the
+  raw JSON from `download_instrument_master()` / `get_quotes()` against
+  what's actually being returned.
+- **Rate limits**: Angel's quote endpoint accepts up to 50 tokens per
+  request and is rate-limited to roughly 1 request/second; the option
+  chain page paces batched requests accordingly, so loading a full
+  NIFTY/BANKNIFTY chain (150+ strikes × 2) can take several seconds. Use
+  the strike-window slider to keep it fast.
+- **Index tokens**: NIFTY 50 / NIFTY BANK / SENSEX tokens are looked up
+  dynamically from Angel's instrument master each time (instrument type
+  `AMXIDX`) and only fall back to hardcoded values if that lookup fails,
+  since Angel has changed these tokens before.
 - This app only reads positions/funds — it doesn't place orders. Treat any
   extension toward order placement with extra care and test with small
   quantities first.
